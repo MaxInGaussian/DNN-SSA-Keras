@@ -50,8 +50,8 @@ class StochasticTrainer(Callback):
         - [Dropout: A simple way to prevent neural networks from overfitting](http://jmlr.org/papers/v15/srivastava14a.html)
         - [Dropout as a Bayesian Approximation: Representing Model Uncertainty in Deep Learning](http://arxiv.org/abs/1506.02142)
     '''
-    def __init__(self, Xt, Yt, T=10, test_every_X_epochs=1, batch_size=500, verbose=1,
-                 loss=None, mean_y_train=None, std_y_train=None):
+    def __init__(self, datasets, valid_freq=1, n_samples=10, batch_size=500,
+        verbose=True, loss=None, mean_y_train=None, std_y_train=None):
         super(ModelTest, self).__init__()
         self.Xt = Xt
         self.Yt = np.array(Yt)

@@ -29,22 +29,22 @@ from keras.engine import InputSpec
 from keras.engine.topology import Layer
 
 
-class SSA(Layer):
-    """This layer implements the stochastic spectral acivations (SSA) technique.
+class SGPA(Layer):
+    """This layer implements the stochastic spectral acivations (SGPA) technique.
     ```python
         # as the first layer in a model
         model = Sequential()
-        model.add(SSA(Dense(8), input_shape=(16), ))
+        model.add(SGPA(Dense(8), input_shape=(16), ))
         # now model.output_shape == (None, 8)
         # subsequent layers: no need for input_shape
         model.add(SSA(Dense(32)))
         # now model.output_shape == (None, 32)
     ```
-    `SSA` can be used with arbitrary layers, not just `Dense`,
+    `SGPA` can be used with arbitrary layers, not just `Dense`,
     for instance with a `Conv2D` layer:
     ```python
         model = Sequential()
-        model.add(SSA(Conv2D(64, (3, 3)), input_shape=(299, 299, 3)))
+        model.add(SGPA(Conv2D(64, (3, 3)), input_shape=(299, 299, 3)))
     ```
     # Arguments
         output_dim: a positive number which defines the dimension of outputs.
@@ -53,8 +53,8 @@ class SSA(Layer):
     """
 
     def __init__(self, output_dim, input_dim, **kwargs):
-        assert output_dim%2==0, "output_dim must be an even integer for SSA!"
-        super(SSA, self).__init__(**kwargs)
+        assert output_dim%2==0, "output_dim must be an even integer for SGPA!"
+        super(SGPA, self).__init__(**kwargs)
         self.output_dim = output_dim
         self.input_dim = input_dim
 
@@ -70,7 +70,7 @@ class SSA(Layer):
             scale=1.,
             shape=(self.input_dim, self.output_dim//2),
         )
-        super(SSA, self).build(input_shape)
+        super(SGPA, self).build(input_shape)
 
     def call(self, Z):
         epsilon1 = tf.random_normal((self.input_dim, self.output_dim//2))

@@ -19,8 +19,8 @@ import numpy as np
 import keras.backend as K
 from keras.models import Sequential
 from keras.layers import Dense, Activation, Dropout
-from SSA import SSA
-from ModelTest import ModelTest
+from Layers import SSA
+from Callbacks import StochasticTrainer
 
 
 DATA_PATH = 'housing.data'
@@ -84,16 +84,16 @@ def mse_sample_mean(Y_true, Y_pred):
 
 model.compile(loss='mse', optimizer='adam')
 
-modeltest_1 = ModelTest(X_train,
-                        mean_y_train + std_y_train * np.atleast_2d(Y_train), 
-                        test_every_X_epochs=1, verbose=0, loss='euclidean', 
-                        mean_y_train=mean_y_train, std_y_train=std_y_train, batch_size=batch_size)
-modeltest_2 = ModelTest(X_test, np.atleast_2d(Y_test), 
-                        test_every_X_epochs=1, verbose=0, loss='euclidean', 
-                        mean_y_train=mean_y_train, std_y_train=std_y_train, batch_size=batch_size)
+trainer_1 = StochasticTrainer(X_train,
+    mean_y_train + std_y_train * np.atleast_2d(Y_train), 
+    test_every_X_epochs=1, verbose=0, loss='euclidean', 
+    mean_y_train=mean_y_train, std_y_train=std_y_train, batch_size=batch_size)
+trainer_2 = StochasticTrainer(X_test, np.atleast_2d(Y_test), 
+    test_every_X_epochs=1, verbose=0, loss='euclidean', 
+    mean_y_train=mean_y_train, std_y_train=std_y_train, batch_size=batch_size)
 # try:
 model.fit(X_train, Y_train,
-        batch_size=batch_size, nb_epoch=250, callbacks=[modeltest_1, modeltest_2])
+        batch_size=batch_size, nb_epoch=250, callbacks=[trainer_1, trainer_2])
 # except:
 #     pass
 
@@ -106,9 +106,8 @@ print(np.sqrt(np.mean(((mean_y_train + std_y_train * np.atleast_2d(Y_train))
 standard_prob = model.predict(X_test, batch_size=500, verbose=1)
 print(np.sqrt(np.mean((np.atleast_2d(Y_test) - (mean_y_train + std_y_train * standard_prob))**2, 0)**0.5))
 
-# MC dropout for test data:
 T = 50
-prob = np.array([modeltest_2.predict_stochastic(X_test, batch_size=500, verbose=0)
+prob = np.array([trainer_2.predict_stochastic(X_test, batch_size=500, verbose=0)
                  for _ in range(T)])
 prob_mean = np.mean(prob, 0)
 print(np.sqrt(np.mean((np.atleast_2d(Y_test) - (mean_y_train + std_y_train * prob_mean))**2, 0)**0.5))
