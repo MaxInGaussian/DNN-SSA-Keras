@@ -17,9 +17,10 @@ import sys
 sys.path.append("../")
 import numpy as np
 import keras.backend as K
+from keras import initializers, regularizers
 from keras.models import Sequential
 from keras.layers import Dense, Activation, Dropout
-from Layers import SSA
+from Layers import SGPA
 from Callbacks import StochasticTrainer
 
 
@@ -63,53 +64,61 @@ def standardize(data_train, data_valid, data_test):
     mean, std = np.squeeze(mean, 0), np.squeeze(std, 0)
     return train_standardized, valid_standardized, test_standardized, mean, std
     
-dataset = load_data(5)
-batch_size = 20
+dataset = load_data(10)
+batch_size = 50
 X_train, Y_train, X_valid, Y_valid, X_test, Y_test = dataset[0]
-X_train, X_valid, X_test = standardize(X_train, X_valid, X_test)[:3]
-Y_train, Y_valid, Y_test, mean_y_train, std_y_train = standardize(Y_train, Y_valid, Y_test)
+X_train, X_valid, X_test, mean_X_train, std_X_train =\
+    standardize(X_train, X_valid, X_test)
+Y_train, Y_valid, Y_test, mean_y_train, std_y_train =\
+    standardize(Y_train, Y_valid, Y_test)
 
-K.set_learning_phase(1)
-model = Sequential()
-model.add(Dense(50, input_dim=13, kernel_initializer='uniform'))
-# model.add(Dropout(0.85))
-model.add(SSA(50, input_dim=50))
-model.add(Dense(25, input_dim=50, kernel_initializer='uniform'))
-model.add(SSA(50, input_dim=25))
-model.add(Dense(1, input_dim=50,  kernel_initializer='uniform'))
 import keras.backend as K
+K.set_learning_phase(1)
 
-def mse_sample_mean(Y_true, Y_pred):
-    return Y_pred
+model = Sequential()
+model.add(Dense(50, input_dim=13))
+model.add(Dropout(0.85))
+# model.add(SGPA(50, input_dim=50))
+# model.add(SGPA(50, input_dim=50))
+# model.add(SGPA(50, input_dim=50))
+output_layer = Dense(1, input_dim=50)
+output_logvar = output_layer.add_weight(
+    shape=(),
+    initializer=initializers.normal(),
+    name='output_logvar'
+)
+model.add(Dense(1, input_dim=50))
+
+def sgpa_mse(Y_true, Y_pred):
+    return .5*(output_logvar+K.exp(-1*output_logvar)*K.mean((Y_true-Y_pred)**2))
 
 model.compile(loss='mse', optimizer='adam')
 
-trainer_1 = StochasticTrainer(X_train,
-    mean_y_train + std_y_train * np.atleast_2d(Y_train), 
-    test_every_X_epochs=1, verbose=0, loss='euclidean', 
-    mean_y_train=mean_y_train, std_y_train=std_y_train, batch_size=batch_size)
-trainer_2 = StochasticTrainer(X_test, np.atleast_2d(Y_test), 
-    test_every_X_epochs=1, verbose=0, loss='euclidean', 
-    mean_y_train=mean_y_train, std_y_train=std_y_train, batch_size=batch_size)
+echo_datasets = [
+    [X_train, Y_train],
+    [X_valid, Y_valid],
+    [X_test, Y_test]
+]
+strainer = StochasticTrainer(
+    'regression', echo_datasets, valid_freq=10, n_samples=50,
+    batch_size=batch_size, mean_y_train=mean_y_train, std_y_train=std_y_train)
+    
 # try:
 model.fit(X_train, Y_train,
-        batch_size=batch_size, nb_epoch=250, callbacks=[trainer_1, trainer_2])
+        batch_size=batch_size, nb_epoch=500, callbacks=[strainer])
 # except:
 #     pass
 
-standard_prob = model.predict(X_train, batch_size=500, verbose=1)
-print(np.sqrt(np.mean(((mean_y_train + std_y_train * np.atleast_2d(Y_train))
-               - (mean_y_train + std_y_train * standard_prob))**2, 0)**0.5))
 
+# approximation for test data:
 
-# Dropout approximation for test data:
-standard_prob = model.predict(X_test, batch_size=500, verbose=1)
-print(np.sqrt(np.mean((np.atleast_2d(Y_test) - (mean_y_train + std_y_train * standard_prob))**2, 0)**0.5))
-
-T = 50
-prob = np.array([trainer_2.predict_stochastic(X_test, batch_size=500, verbose=0)
-                 for _ in range(T)])
+test_n_samples = 100
+prob = np.array([strainer.predict_stochastic(
+    X_test, batch_size=100, verbose=0) for _ in range(test_n_samples)])
 prob_mean = np.mean(prob, 0)
-print(np.sqrt(np.mean((np.atleast_2d(Y_test) - (mean_y_train + std_y_train * prob_mean))**2, 0)**0.5))
+prob_var = np.var(prob, 0)
+Y_pred = prob_mean*std_y_train+mean_y_train
+print(np.sqrt(np.mean(((Y_test-prob_mean)*std_y_train)**2)))
+print(np.sqrt(np.mean(((Y_test-model.predict(X_test))*std_y_train)**2)))
 
 
