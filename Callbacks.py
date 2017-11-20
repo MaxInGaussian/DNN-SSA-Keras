@@ -90,11 +90,13 @@ class StochasticTrainer(Callback):
         if epoch % self.valid_freq != 0:
             return
         for data_id, (X, Y) in enumerate(self.datasets):
+            noise_var = np.exp(self.model.output_layers[0].get_weights()[0])
+            print(noise_var)
             Y_preds = np.array([self.predict_stochastic(
                 X, batch_size=self.batch_size, verbose=self.verbose)
                     for _ in range(self.n_samples)])
             Y_preds_mean = np.mean(Y_preds, 0)
-            Y_preds_var = (np.std(Y_preds, 0)+1.)**2.
+            Y_preds_var = np.var(Y_preds, 0)+noise_var
             if self.task == 'regression':
                 rmse = np.sqrt(np.mean(((Y-Y_preds_mean)*self.std_y_train)**2))
                 nlpd = .5*(np.mean(np.log(Y_preds_var*self.std_y_train**2.)+((

@@ -34,30 +34,28 @@ class SGPA(Layer):
     ```python
         # as the first layer in a model
         model = Sequential()
-        model.add(SGPA(Dense(8), input_shape=(16), ))
+        model.add(SGPA(8, input_shape=(16), ))
         # now model.output_shape == (None, 8)
-        # subsequent layers: no need for input_shape
-        model.add(SSA(Dense(32)))
-        # now model.output_shape == (None, 32)
     ```
     `SGPA` can be used with arbitrary layers, not just `Dense`,
     for instance with a `Conv2D` layer:
     ```python
         model = Sequential()
-        model.add(SGPA(Conv2D(64, (3, 3)), input_shape=(299, 299, 3)))
+        model.add(Conv2D(64, (3, 3)))
+        model.add(SGPA(64, input_shape=(64, 64, 3)))
     ```
     # Arguments
-        units: a positive number which defines the dimension of outputs.
-        input_dim: a positive number which defines the dimension of inputs.
+        units: a positive number which defines the last dimension of output.
+        input_shape: a positive number which defines the shape of input.
     """
 
-    def __init__(self, units, input_dim, **kwargs):
+    def __init__(self, units, **kwargs):
         assert units%2 == 0, 'units must be an even number!'
         if 'input_shape' not in kwargs and 'input_dim' in kwargs:
             kwargs['input_shape'] = (kwargs.pop('input_dim'),)
         super(SGPA, self).__init__(**kwargs)
         self.units = units
-        self.input_dim = input_dim
+        self.input_dim = kwargs['input_shape'][0]
         self.n_basis = self.units//2
         self.at_output = int(self.n_basis==0)
         self.input_spec = InputSpec(min_ndim=2)
@@ -68,18 +66,14 @@ class SGPA(Layer):
         input_dim = input_shape[-1]
         self.input_spec = InputSpec(min_ndim=2, axes={-1: input_dim})
         self.alpha_mean = self.add_weight(
-            shape=(input_dim, self.n_basis+self.at_output),
+            shape=(1, self.n_basis+self.at_output),
             initializer=initializers.normal(),
             name='alpha_mean',
-            # regularizer=self.kernel_regularizer,
-            # constraint=self.kernel_constraint
         )
         self.alpha_logstd = self.add_weight(
-            shape=(input_dim, self.n_basis+self.at_output),
+            shape=(1, self.n_basis+self.at_output),
             initializer=initializers.normal(),
             name='alpha_logstd',
-            # regularizer=self.kernel_regularizer,
-            # constraint=self.kernel_constraint
         )
         super(SGPA, self).build(input_shape)
         self.built = True
