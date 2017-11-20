@@ -77,11 +77,12 @@ K.set_learning_phase(1)
 
 model = Sequential()
 model.add(Dense(50, input_dim=13))
-model.add(Dropout(0.85))
+# model.add(Activation('relu'))
+model.add(SGPA(100, input_dim=50))
 # model.add(SGPA(50, input_dim=50))
 # model.add(SGPA(50, input_dim=50))
-# model.add(SGPA(50, input_dim=50))
-output_layer = Dense(1, input_dim=50)
+# model.add(Dropout(0.85))
+output_layer = Dense(1, input_dim=100)
 output_logvar = output_layer.add_weight(
     shape=(),
     initializer=initializers.normal(),
