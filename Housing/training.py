@@ -72,36 +72,31 @@ def standardize(data_train, data_valid, data_test):
     return train_standardized, valid_standardized, test_standardized, mean, std
     
 
-model_choices = ['MCDropout_DNN', 'SGPA_DNN']
-dataset = load_data(5)    
-test_n_samples = 1000
-train_dict = dict()
+model_choices = ['SGPA_DNN']
+dataset = load_data(5)
+test_n_samples = 300
+train_dict, fit_dict = {}, {}
 train_dict['task'] = 'regression'
 
 ## Stochastic Training Parameters
-train_dict['batch_size'] = 50
+train_dict['evaluation'] = True
 train_dict['n_samples'] = 50
-train_dict['valid_freq'] = 10
+train_dict['batch_size'] = fit_dict['batch_size'] = 20
 
 ## Early Stopping Parameters
 train_dict['min_delta'] = 1e-6
 train_dict['patience'] = 10
-train_dict['epochs'] = 10000
+train_dict['valid_freq'] = 15
+fit_dict['epochs'] = 10000
 
 ## Network Structure Parameters
 activations = ['tanh', 'sigmoid', 'relu']
 layer_sizes = [13, 50, 30, 1]
 
-fit_dict = dict()
-fit_dict['epochs'] = train_dict['epochs']
-fit_dict['batch_size'] = train_dict['batch_size']
-  
-
 performance_log = {model: [] for model in model_choices}
 for model in model_choices:
     
     train_dict['save_path'] = model+'('+','.join(map(str, layer_sizes))+').hdf5'
-    keras_model = getattr(Models, model)(layer_sizes)
 
     for X_train, Y_train, X_valid, Y_valid, X_test, Y_test in dataset:
     
@@ -112,7 +107,8 @@ for model in model_choices:
         
         train_dict['datasets'] = [[X_valid, Y_valid]]
         strainer = StochasticTrainer(**train_dict)
-        
+
+        keras_model = getattr(Models, model)(layer_sizes)
         keras_model.fit(X_train, Y_train, callbacks=[strainer], **fit_dict)
         
         Y_preds = np.array([strainer.predict_stochastic(
@@ -128,4 +124,9 @@ for model in model_choices:
         
         performance_log[model].append([float(rmse), float(nlpd)])
 
-
+for model in model_choices:
+    mu = np.mean(performance_log[model], 0)
+    std = np.std(performance_log[model], 0)
+    print('>>>> '+model)
+    print('     RMSE = {:.4f} \pm {:.4f}'.format(mu[0], 1.96*std[0]))
+    print('     NLPD = {:.4f} \pm {:.4f}'.format(mu[1], 1.96*std[1]))

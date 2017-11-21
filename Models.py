@@ -26,7 +26,7 @@ import keras.backend as K
 from keras import initializers, regularizers
 from keras.models import Sequential
 from keras.layers import Dense, Activation, Dropout
-from Layers import SGPA
+from Layers import SGPA, MaxSGPA
 
 
 def DNN(layer_sizes, activation='relu'):
@@ -52,7 +52,7 @@ def MCDropout_DNN(layer_sizes, activation='relu', dropout_rate=0.5):
             output_layer = Dense(n_out, input_dim=n_in)
             noise_logvar = output_layer.add_weight(
                 shape=(),
-                initializer=initializers.constant(np.log(1e-1)),
+                initializer=initializers.constant(np.log(0.2)),
                 name='noise_logvar'
             )
             model.add(output_layer)
@@ -62,7 +62,7 @@ def MCDropout_DNN(layer_sizes, activation='relu', dropout_rate=0.5):
     return model
 
 
-def SGPA_DNN(layer_sizes, n_basis=100):
+def SGPA_DNN(layer_sizes, n_basis=20):
     K.set_learning_phase(1)
     model = Sequential()
     for l, (n_in, n_out) in enumerate(zip(layer_sizes[:-1], layer_sizes[1:])):
@@ -73,11 +73,32 @@ def SGPA_DNN(layer_sizes, n_basis=100):
             output_layer = Dense(n_out, input_dim=n_in)
             noise_logvar = output_layer.add_weight(
                 shape=(),
-                initializer=initializers.constant(np.log(1e-1)),
+                initializer=initializers.constant(np.log(0.2)),
                 name='noise_logvar'
             )
             model.add(output_layer)
     def sgpa_mse(Y_true, Y_pred):
         return .5*(noise_logvar+K.exp(-noise_logvar)*K.mean((Y_true-Y_pred)**2))
-    model.compile(loss=sgpa_mse, optimizer='adam')
+    model.compile(loss=sgpa_mse, optimizer='rmsprop')
+    return model
+
+
+def MaxSGPA_DNN(layer_sizes, n_basis=20):
+    K.set_learning_phase(1)
+    model = Sequential()
+    for l, (n_in, n_out) in enumerate(zip(layer_sizes[:-1], layer_sizes[1:])):
+        if(l < len(layer_sizes)-2):
+            model.add(Dense(n_basis, input_dim=n_in))
+            model.add(MaxSGPA(n_out, input_dim=n_basis))
+        else:
+            output_layer = Dense(n_out, input_dim=n_in)
+            noise_logvar = output_layer.add_weight(
+                shape=(),
+                initializer=initializers.constant(np.log(0.2)),
+                name='noise_logvar'
+            )
+            model.add(output_layer)
+    def sgpa_mse(Y_true, Y_pred):
+        return .5*(noise_logvar+K.exp(-noise_logvar)*K.mean((Y_true-Y_pred)**2))
+    model.compile(loss=sgpa_mse, optimizer='rmsprop')
     return model

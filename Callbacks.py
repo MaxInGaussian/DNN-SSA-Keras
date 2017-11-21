@@ -52,15 +52,15 @@ class StochasticTrainer(Callback):
     # References
     '''
     def __init__(self, task, datasets, valid_freq, n_samples, batch_size,
-        min_delta, patience, save_path=None, verbose=False, **kwargs):
+        min_delta, patience, evaluation, save_path=None, verbose=False, **args):
         super(StochasticTrainer, self).__init__()
         self.task = task
         self.datasets = datasets
         self.n_samples = n_samples
         self.valid_freq = valid_freq
         self.batch_size = batch_size
-        self._predict_stochastic = None
         self.verbose = verbose
+        self.evaluation = evaluation
         self.save_path = save_path
         if(save_path is not None):
             save_path_dir = ''.join(save_path.split('/')[:-1])
@@ -69,9 +69,11 @@ class StochasticTrainer(Callback):
                     os.makedirs(save_path_dir)
         self.min_delta = min_delta
         self.patience = patience
+        self.reused_best = False
         self.wait = 0
         self.stopped_epoch = 0
         self.monitor_op = np.less
+        self._predict_stochastic = None
 
     def predict_stochastic(self, X, batch_size=128, verbose=False):
         '''Generate output predictions for the input samples batch by batch,
@@ -99,7 +101,7 @@ class StochasticTrainer(Callback):
         self.wait = 0
         self.stopped_epoch = 0
         self.best = np.Inf if self.monitor_op == np.less else -np.Inf
-        if(self.save_path is not None):
+        if(not self.evaluation and self.save_path is not None):
             if os.path.exists(self.save_path):
                 self.model.load_weights(self.save_path)
     
@@ -125,9 +127,9 @@ class StochasticTrainer(Callback):
                     Y-Y_preds_mean)**2)/Y_preds_var)+np.log(2*np.pi))
                 if(data_id == 0):
                     self.current = rmse*nlpd
-                print("Epoch %05d: RMSE of (X_valid_%d,Y_valid_%d) = %0.5f"%(
+                print("Epoch %05d: RMSE of (X_valid_%d, Y_valid_%d) = %0.5f"%(
                     epoch, data_id, data_id, float(rmse)))
-                print("Epoch %05d: NLPD of (X_valid_%d,Y_valid_%d) = %0.5f"%(
+                print("Epoch %05d: NLPD of (X_valid_%d, Y_valid_%d) = %0.5f"%(
                     epoch, data_id, data_id, float(nlpd)))
             elif self.task == 'classification':
                 acc = np.mean(np.argmax(Y, -1)==np.argmax(Y_preds_mean, -1))
@@ -143,6 +145,7 @@ class StochasticTrainer(Callback):
         logs = logs or {}
         if self.monitor_op(self.current+self.min_delta, self.best):
             self.wait = 0
+            self.reused_best = True
             self.best = self.current
             if(self.save_path is not None):
                 self.model.save_weights(self.save_path, overwrite=True)
