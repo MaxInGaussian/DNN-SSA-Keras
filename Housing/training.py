@@ -1,22 +1,32 @@
-# Copyright 2017 Max W. Y. Lam
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# MIT License
+# 
+# Copyright (c) 2017 Max W. Y. Lam
+# 
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+# 
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
 
 
 import sys
 sys.path.append("../")
+import importlib
 import numpy as np
 import keras.backend as K
+from keras.callbacks import TensorBoard
 from Callbacks import StochasticTrainer
 from Models import MCDropout_DNN, SGPA_DNN
 
@@ -63,7 +73,7 @@ def standardize(data_train, data_valid, data_test):
     
 
 dataset = load_data(5)
-batch_size = 100
+batch_size = 20
 activations = ['tanh', 'sigmoid', 'relu']
 layer_sizes = [13, 50, 30, 1]
 
@@ -75,16 +85,19 @@ X_train, X_valid, X_test, mean_X_train, std_X_train =\
 Y_train, Y_valid, Y_test, mean_y_train, std_y_train =\
     standardize(Y_train, Y_valid, Y_test)
     
-echo_datasets = [[X_train, Y_train], [X_valid, Y_valid], [X_test, Y_test]]
+echo_datasets = [[X_valid, Y_valid]]
 strainer = StochasticTrainer(
-    'regression', echo_datasets, valid_freq=10, n_samples=50,
-    batch_size=batch_size, mean_y_train=mean_y_train, std_y_train=std_y_train)
-    
-# try:
-model.fit(X_train, Y_train, batch_size=batch_size, epochs=300, validation_data=[X_valid, Y_valid], callbacks=[strainer])
-# except:
-#     pass
+    'regression', echo_datasets, valid_freq=10, n_samples=50, save_path='trained/test.hdf5',
+    batch_size=batch_size, mean_y_train=mean_y_train, std_y_train=std_y_train,
+    min_delta=1e-3, patience=10)
 
+training_setting = {
+    'batch_size': batch_size,
+    'epochs': 10000,
+    'callbacks': [strainer],
+}
+
+model.fit(X_train, Y_train, **training_setting)
 
 # approximation for test data:
 

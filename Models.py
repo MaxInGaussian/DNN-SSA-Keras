@@ -52,7 +52,7 @@ def MCDropout_DNN(layer_sizes, activation='relu', dropout_rate=0.5):
             output_layer = Dense(n_out, input_dim=n_in)
             noise_logvar = output_layer.add_weight(
                 shape=(),
-                initializer=initializers.constant(0.),
+                initializer=initializers.constant(np.log(1e-1)),
                 name='noise_logvar'
             )
             model.add(output_layer)
@@ -73,7 +73,7 @@ def SGPA_DNN(layer_sizes):
             output_layer = Dense(n_out, input_dim=n_in)
             noise_logvar = output_layer.add_weight(
                 shape=(),
-                initializer=initializers.constant(0.),
+                initializer=initializers.constant(np.log(1e-1)),
                 name='noise_logvar'
             )
             model.add(output_layer)
