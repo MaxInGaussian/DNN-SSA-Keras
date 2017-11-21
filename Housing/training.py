@@ -73,11 +73,14 @@ def standardize(data_train, data_valid, data_test):
     
 
 dataset = load_data(5)
-batch_size = 20
+valid_freq = 10
+batch_size = 50
+n_samples = 50
+save_path='trained/best.hdf5'
 activations = ['tanh', 'sigmoid', 'relu']
 layer_sizes = [13, 50, 30, 1]
 
-model = SGPA_DNN(layer_sizes)
+model = MCDropout_DNN(layer_sizes)
 
 X_train, Y_train, X_valid, Y_valid, X_test, Y_test = dataset[0]
 X_train, X_valid, X_test, mean_X_train, std_X_train =\
@@ -85,11 +88,10 @@ X_train, X_valid, X_test, mean_X_train, std_X_train =\
 Y_train, Y_valid, Y_test, mean_y_train, std_y_train =\
     standardize(Y_train, Y_valid, Y_test)
     
-echo_datasets = [[X_valid, Y_valid]]
+valid_datasets = [[X_valid, Y_valid]]
 strainer = StochasticTrainer(
-    'regression', echo_datasets, valid_freq=10, n_samples=50, save_path='trained/test.hdf5',
-    batch_size=batch_size, mean_y_train=mean_y_train, std_y_train=std_y_train,
-    min_delta=1e-3, patience=10)
+    'regression', valid_datasets, valid_freq=valid_freq, n_samples=n_samples,
+    save_path=save_path, batch_size=batch_size, min_delta=1e-2, patience=10)
 
 training_setting = {
     'batch_size': batch_size,
@@ -99,12 +101,16 @@ training_setting = {
 
 model.fit(X_train, Y_train, **training_setting)
 
-# approximation for test data:
-
 test_n_samples = 100
-prob = np.array([strainer.predict_stochastic(
-    X_test, batch_size=100, verbose=0) for _ in range(test_n_samples)])
-prob_mean = np.mean(prob, 0)
-print(np.sqrt(np.mean(((Y_test-prob_mean)*std_y_train)**2)))
+Y_preds = np.array([strainer.predict_stochastic(
+    X_test, batch_size=batch_size, verbose=0) for _ in range(test_n_samples)])
+Y_preds_mean = np.mean(prob, 0)
+rmse = np.sqrt(np.mean(((Y_test-Y_preds_mean)*std_y_train)**2))
+noise_var = np.exp(model.output_layers[0].get_weights()[0])
+Y_preds_var = np.var(Y_preds, 0)+noise_var
+nlpd = .5*(np.mean(np.log(Y_preds_var*std_y_train**2.)+((
+    Y_test-Y_preds_mean)**2)/Y_preds_var)+np.log(2*np.pi))
+print("RMSE of (X_test, Y_test) = %0.5f"%(float(rmse)))
+print("NLPD of (X_test, Y_test) = %0.5f"%(float(nlpd)))
 
 

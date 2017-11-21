@@ -51,8 +51,7 @@ class StochasticTrainer(Callback):
         verbose: verbosity mode, True or False.
     # References
     '''
-    def __init__(self, task, datasets, valid_freq=10, n_samples=10,
-        batch_size=128, mean_y_train=None, std_y_train=None,
+    def __init__(self, task, datasets, valid_freq=1, n_samples=1, batch_size=10,
         min_delta=0, patience=0, save_path=None, verbose=False, mode='min'):
         super(StochasticTrainer, self).__init__()
         self.task = task
@@ -60,15 +59,12 @@ class StochasticTrainer(Callback):
         self.n_samples = n_samples
         self.valid_freq = valid_freq
         self.batch_size = batch_size
-        self.mean_y_train = mean_y_train
-        self.std_y_train = std_y_train
         self._predict_stochastic = None
         self.verbose = verbose
         self.save_path = save_path
         save_path_dir = ''.join(save_path.split('/')[:-1])
         if not os.path.exists(save_path_dir):
             os.makedirs(save_path_dir)
-        self.epochs_since_last_save = 0
         self.min_delta = min_delta
         self.patience = patience
         self.wait = 0
@@ -131,20 +127,20 @@ class StochasticTrainer(Callback):
             Y_preds_mean = np.mean(Y_preds, 0)
             Y_preds_var = np.var(Y_preds, 0)+noise_var
             if self.task == 'regression':
-                rmse = np.sqrt(np.mean(((Y-Y_preds_mean)*self.std_y_train)**2))
-                nlpd = .5*(np.mean(np.log(Y_preds_var*self.std_y_train**2.)+((
+                rmse = np.sqrt(np.mean((Y-Y_preds_mean)**2))
+                nlpd = .5*(np.mean(np.log(Y_preds_var)+((
                     Y-Y_preds_mean)**2)/Y_preds_var)+np.log(2*np.pi))
                 if(data_id == 0):
-                    self.current = rmse
-                print("Epoch %05d: RMSE of (X_%d,Y_%d) = %0.5f"%(
+                    self.current = rmse*nlpd
+                print("Epoch %05d: RMSE of (X_valid_%d,Y_valid_%d) = %0.5f"%(
                     epoch, data_id, data_id, float(rmse)))
-                print("Epoch %05d: NLPD of (X_%d,Y_%d) = %0.5f"%(
+                print("Epoch %05d: NLPD of (X_valid_%d,Y_valid_%d) = %0.5f"%(
                     epoch, data_id, data_id, float(nlpd)))
             elif self.task == 'classification':
                 acc = np.mean(np.argmax(Y, -1)==np.argmax(Y_preds_mean, -1))
                 print("MC accuracy at epoch %05d = %0.5f" % (epoch, float(acc)))
                 if(data_id == 0):
-                    self.current = 1-acc
+                    self.current = (1-acc)
             else:
                 raise Exception('No task: '+self.task)
     
@@ -152,7 +148,6 @@ class StochasticTrainer(Callback):
         if epoch % self.valid_freq != 0:
             return
         logs = logs or {}
-        self.epochs_since_last_save += 1
         if self.monitor_op(self.current-self.min_delta, self.best):
             self.best = self.current
             self.wait = 0
