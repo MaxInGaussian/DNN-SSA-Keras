@@ -127,10 +127,10 @@ class StochasticTrainer(Callback):
                     Y-Y_preds_mean)**2)/Y_preds_var)+np.log(2*np.pi))
                 if(data_id == 0):
                     self.current = rmse*nlpd
-                print("Epoch %05d: RMSE of (X_valid_%d, Y_valid_%d) = %0.5f"%(
-                    epoch, data_id, data_id, float(rmse)))
-                print("Epoch %05d: NLPD of (X_valid_%d, Y_valid_%d) = %0.5f"%(
-                    epoch, data_id, data_id, float(nlpd)))
+                print("Epoch %05d: RMSE of (X_valid_%d, Y_valid_%d) = %0.5f %d"%(
+                    epoch, data_id, data_id, float(rmse), self.wait))
+                print("Epoch %05d: NLPD of (X_valid_%d, Y_valid_%d) = %0.5f %d"%(
+                    epoch, data_id, data_id, float(nlpd), self.wait))
             elif self.task == 'classification':
                 acc = np.mean(np.argmax(Y, -1)==np.argmax(Y_preds_mean, -1))
                 print("MC accuracy at epoch %05d = %0.5f" % (epoch, float(acc)))

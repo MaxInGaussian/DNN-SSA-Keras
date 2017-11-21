@@ -81,7 +81,7 @@ train_dict['task'] = 'regression'
 ## Stochastic Training Parameters
 train_dict['evaluation'] = True
 train_dict['n_samples'] = 50
-train_dict['batch_size'] = fit_dict['batch_size'] = 20
+train_dict['batch_size'] = 20
 
 ## Early Stopping Parameters
 train_dict['min_delta'] = 1e-6
@@ -105,7 +105,7 @@ for model in model_choices:
         Y_train, Y_valid, Y_test, mean_Y_train, std_Y_train =\
             standardize(Y_train, Y_valid, Y_test)
         
-        train_dict['datasets'] = [[X_valid, Y_valid]]
+        train_dict['datasets'] = [[X_test, Y_test]]
         strainer = StochasticTrainer(**train_dict)
 
         keras_model = getattr(Models, model)(layer_sizes)
