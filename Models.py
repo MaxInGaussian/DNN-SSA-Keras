@@ -62,13 +62,13 @@ def MCDropout_DNN(layer_sizes, activation='relu', dropout_rate=0.5):
     return model
 
 
-def SGPA_DNN(layer_sizes):
+def SGPA_DNN(layer_sizes, n_basis=100):
     K.set_learning_phase(1)
     model = Sequential()
     for l, (n_in, n_out) in enumerate(zip(layer_sizes[:-1], layer_sizes[1:])):
         if(l < len(layer_sizes)-2):
-            model.add(Dense(n_out, input_dim=n_in))
-            model.add(SGPA(n_out, input_dim=n_out))
+            model.add(Dense(n_basis, input_dim=n_in))
+            model.add(SGPA(n_out, input_dim=n_basis))
         else:
             output_layer = Dense(n_out, input_dim=n_in)
             noise_logvar = output_layer.add_weight(

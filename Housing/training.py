@@ -26,9 +26,9 @@ sys.path.append("../")
 import importlib
 import numpy as np
 import keras.backend as K
+import Models
 from keras.callbacks import TensorBoard
 from Callbacks import StochasticTrainer
-from Models import MCDropout_DNN, SGPA_DNN
 
 
 DATA_PATH = 'housing.data'
@@ -72,45 +72,60 @@ def standardize(data_train, data_valid, data_test):
     return train_standardized, valid_standardized, test_standardized, mean, std
     
 
-dataset = load_data(5)
-valid_freq = 10
-batch_size = 50
-n_samples = 50
-save_path='trained/best.hdf5'
+model_choices = ['SGPA_DNN']
+dataset = load_data(5)    
+test_n_samples = 1000
+train_dict = dict()
+train_dict['task'] = 'regression'
+
+## Stochastic Training Parameters
+train_dict['batch_size'] = 50
+train_dict['n_samples'] = 50
+train_dict['valid_freq'] = 10
+
+## Early Stopping Parameters
+train_dict['min_delta'] = 1e-5
+train_dict['patience'] = 10
+train_dict['epochs'] = 10000
+
+## Network Structure Parameters
 activations = ['tanh', 'sigmoid', 'relu']
 layer_sizes = [13, 50, 30, 1]
 
-model = MCDropout_DNN(layer_sizes)
+fit_dict = dict()
+fit_dict['epochs'] = train_dict['epochs']
+fit_dict['batch_size'] = train_dict['batch_size']
+  
 
-X_train, Y_train, X_valid, Y_valid, X_test, Y_test = dataset[0]
-X_train, X_valid, X_test, mean_X_train, std_X_train =\
-    standardize(X_train, X_valid, X_test)
-Y_train, Y_valid, Y_test, mean_y_train, std_y_train =\
-    standardize(Y_train, Y_valid, Y_test)
+performance_log = {model: [] for model in model_choices}
+for model in model_choices:
     
-valid_datasets = [[X_valid, Y_valid]]
-strainer = StochasticTrainer(
-    'regression', valid_datasets, valid_freq=valid_freq, n_samples=n_samples,
-    save_path=save_path, batch_size=batch_size, min_delta=1e-2, patience=10)
+    train_dict['save_path'] = model+'('+','.join(map(str, layer_sizes))+').hdf5'
+    keras_model = getattr(Models, model)(layer_sizes)
 
-training_setting = {
-    'batch_size': batch_size,
-    'epochs': 10000,
-    'callbacks': [strainer],
-}
-
-model.fit(X_train, Y_train, **training_setting)
-
-test_n_samples = 100
-Y_preds = np.array([strainer.predict_stochastic(
-    X_test, batch_size=batch_size, verbose=0) for _ in range(test_n_samples)])
-Y_preds_mean = np.mean(prob, 0)
-rmse = np.sqrt(np.mean(((Y_test-Y_preds_mean)*std_y_train)**2))
-noise_var = np.exp(model.output_layers[0].get_weights()[0])
-Y_preds_var = np.var(Y_preds, 0)+noise_var
-nlpd = .5*(np.mean(np.log(Y_preds_var*std_y_train**2.)+((
-    Y_test-Y_preds_mean)**2)/Y_preds_var)+np.log(2*np.pi))
-print("RMSE of (X_test, Y_test) = %0.5f"%(float(rmse)))
-print("NLPD of (X_test, Y_test) = %0.5f"%(float(nlpd)))
+    for X_train, Y_train, X_valid, Y_valid, X_test, Y_test in dataset:
+    
+        X_train, X_valid, X_test, mean_X_train, std_X_train =\
+            standardize(X_train, X_valid, X_test)
+        Y_train, Y_valid, Y_test, mean_Y_train, std_Y_train =\
+            standardize(Y_train, Y_valid, Y_test)
+        
+        train_dict['datasets'] = [[X_valid, Y_valid]]
+        strainer = StochasticTrainer(**train_dict)
+        
+        keras_model.fit(X_train, Y_train, callbacks=[strainer], **fit_dict)
+        
+        Y_preds = np.array([strainer.predict_stochastic(
+            X_test, verbose=0) for _ in range(test_n_samples)])
+        Y_preds_mean = np.mean(Y_preds, 0)
+        rmse = np.sqrt(np.mean(((Y_test-Y_preds_mean)*std_Y_train)**2))
+        noise_var = np.exp(keras_model.output_layers[0].get_weights()[0])
+        Y_preds_var = np.var(Y_preds, 0)+noise_var
+        nlpd = .5*(np.mean(np.log(Y_preds_var*std_Y_train**2.)+((
+            Y_test-Y_preds_mean)**2)/Y_preds_var)+np.log(2*np.pi))
+        print("RMSE of (X_test, Y_test) = %0.5f"%(float(rmse)))
+        print("NLPD of (X_test, Y_test) = %0.5f"%(float(nlpd)))
+        
+        performance_log[model].append([float(rmse), float(nlpd)])
 
 

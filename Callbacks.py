@@ -51,8 +51,8 @@ class StochasticTrainer(Callback):
         verbose: verbosity mode, True or False.
     # References
     '''
-    def __init__(self, task, datasets, valid_freq=1, n_samples=1, batch_size=10,
-        min_delta=0, patience=0, save_path=None, verbose=False, mode='min'):
+    def __init__(self, task, datasets, valid_freq, n_samples, batch_size,
+        min_delta, patience, save_path=None, verbose=False, **kwargs):
         super(StochasticTrainer, self).__init__()
         self.task = task
         self.datasets = datasets
@@ -62,26 +62,16 @@ class StochasticTrainer(Callback):
         self._predict_stochastic = None
         self.verbose = verbose
         self.save_path = save_path
-        save_path_dir = ''.join(save_path.split('/')[:-1])
-        if not os.path.exists(save_path_dir):
-            os.makedirs(save_path_dir)
+        if(save_path is not None):
+            save_path_dir = ''.join(save_path.split('/')[:-1])
+            if(len(save_path_dir)):
+                if not os.path.exists(save_path_dir):
+                    os.makedirs(save_path_dir)
         self.min_delta = min_delta
         self.patience = patience
         self.wait = 0
         self.stopped_epoch = 0
-        if mode not in ['min', 'max']:
-            warnings.warn('EarlyStopping mode %s is unknown, '
-                          'fallback to "min" mode.' % mode,
-                          RuntimeWarning)
-            mode = 'min'
-        if mode == 'min':
-            self.monitor_op = np.less
-        elif mode == 'max':
-            self.monitor_op = np.greater
-        if self.monitor_op == np.greater:
-            self.min_delta *= 1
-        else:
-            self.min_delta *= -1
+        self.monitor_op = np.less
 
     def predict_stochastic(self, X, batch_size=128, verbose=False):
         '''Generate output predictions for the input samples batch by batch,
@@ -109,6 +99,9 @@ class StochasticTrainer(Callback):
         self.wait = 0
         self.stopped_epoch = 0
         self.best = np.Inf if self.monitor_op == np.less else -np.Inf
+        if(self.save_path is not None):
+            if os.path.exists(self.save_path):
+                self.model.load_weights(self.save_path)
     
     def on_train_end(self, logs=None):
         if(self.save_path is not None):
@@ -148,9 +141,9 @@ class StochasticTrainer(Callback):
         if epoch % self.valid_freq != 0:
             return
         logs = logs or {}
-        if self.monitor_op(self.current-self.min_delta, self.best):
-            self.best = self.current
+        if self.monitor_op(self.current+self.min_delta, self.best):
             self.wait = 0
+            self.best = self.current
             if(self.save_path is not None):
                 self.model.save_weights(self.save_path, overwrite=True)
         else:
