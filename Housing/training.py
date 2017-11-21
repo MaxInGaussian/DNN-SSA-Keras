@@ -72,7 +72,7 @@ def standardize(data_train, data_valid, data_test):
     return train_standardized, valid_standardized, test_standardized, mean, std
     
 
-model_choices = ['SGPA_DNN']
+model_choices = ['MCDropout_DNN', 'SGPA_DNN']
 dataset = load_data(5)    
 test_n_samples = 1000
 train_dict = dict()
@@ -84,7 +84,7 @@ train_dict['n_samples'] = 50
 train_dict['valid_freq'] = 10
 
 ## Early Stopping Parameters
-train_dict['min_delta'] = 1e-5
+train_dict['min_delta'] = 1e-6
 train_dict['patience'] = 10
 train_dict['epochs'] = 10000
 
